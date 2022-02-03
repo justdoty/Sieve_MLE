@@ -1,22 +1,27 @@
-MCMC <- function(X, D, dimun, bdraws, mdraws, beta){
-	Xmat <- array(0, c(length(idvar), mdraws, dimun))
+MCMC <- function(X, dz, dx, loc, bdraws, mdraws, beta){
+	if (is.null(dx)){
+		D <- dz
+	} else if (is.null(dz)){
+		D <- dx
+	}
+	Xmat <- array(0, c(length(idvar), mdraws, length(D$dstar)))
 	r <- -bdraws+1
 	#Initial Guess of Unobservables
-	if (dimun==1){
+	if (length(D$dstar)==1){
 		siginit <- 1
 	} else {
-		siginit <- cov(X[,dimun])
+		siginit <- cov(X[,length(D$dstar)])
 	}
-	init <- mvrnorm(n=nrow(X), mu=rep(0, dimun), Sigma=siginit)
-	draw <- matrix(init, nrow=length(idvar), ncol=dimun)
+	init <- mvrnorm(n=nrow(X), mu=rep(0, length(D$dstar)), Sigma=siginit)
+	draw <- matrix(init, nrow=length(idvar), ncol=length(D$dstar))
 	#Compute posterior at initial value
-	oldpost <- posterior(X=X, Xstar=draw, D=D, beta=beta)
+	oldpost <- posterior(X=X, Xstar=draw, dz=dz, dx=dx, loc=loc, beta=beta)
 	#Start MCMC algorithm
 	for (b in r:mdraws){
-		newinit <- mvrnorm(n=length(idvar), mu=rep(colMeans(draw), dimun), Sigma=siginit)
-		newdraw <- matrix(newinit, nrow=length(idvar), ncol=dimun)
+		newinit <- mvrnorm(n=length(idvar), mu=rep(colMeans(draw), length(D$dstar)), Sigma=siginit)
+		newdraw <- matrix(newinit, nrow=length(idvar), ncol=length(D$dstar))
 		#Compute new posterior
-		newpost <- posterior(X=X, Xstar=newdraw, D=D, beta=beta)
+		newpost <- posterior(X=X, Xstar=newdraw, dz=dz, dx=dx, loc=loc, beta=beta)
 		#Acceptance Probability
 		loga <- pmin(newpost-oldpost, 0)
 		#Create a set of N (number of individuals/firms) indices for acceptance rule
