@@ -28,6 +28,28 @@ legendre <- function(n, x){
     lp <- Lp[,n+1]
     return(lp)
 }
+#Hermite polynomial
+hermite <- function(n, x){
+	stopifnot(is.numeric(x), is.numeric(n),
+	          length(n) == 1, floor(n) == ceiling(n), n >= 0)
+	x <- as.matrix(x)
+	N <- nrow(x)
+	if (n == 0) return(rep(1, N))
+    # generate the Hermite polynomials up to degree n
+    Hp <- matrix(0, nrow=nrow(x), ncol=n+1)
+    Hp[,1] <- 1; Hp[,2] <- 2*x
+    if (n>1){
+        for (i in 3:(n+1)) {
+	        j <- i-1
+	        k <- i-2
+	        Hp[,i] <- 2*x*Hp[,j]-2*k*Hp[,k]
+        }
+    }
+    w <- exp(-(x^2)/2)
+    c <- sqrt(1/sqrt(pi)*factorial(n+1)*2^(n+1))
+    hp <- c*Hp[,n+1]*w
+    return(hp)
+}
 #Matrix of Tensor Product Positions
 tensormat <- function(D){
 	M <- as.numeric(unlist(D))
@@ -43,149 +65,145 @@ tensormat <- function(D){
 	}
 	return(tmp)
 }
-tensor <- function(X, D){
+tensor <- function(X, D, basis){
 	tmp <- tensormat(D=D)
 	tensor <- apply(tmp, 1, function(z) cprod(sapply(1:length(z), function(zz) legendre(n=z[zz], x=X[,zz]))))
 	return(tensor)
 }
-#Function defining which parameters to constrain
-eqfun <- function(X, dz, dx, loc, beta){
-	if (is.null(dx)){
-		D <- dz
-		zloc <- (length(dz$dobs)+1):(length(dz$dobs)+length(dz$dstar))
-	} else if (is.null(dz)){
-		D <- dx
-		zloc <- 1:length(D$dobs)
-	}
-	M <- tensormat(D=D)
-	#Beta0=1
-	b0 <- beta[1]
-	#Parameter locations for integration constraints
-	b1 <- beta[which(rowSums(M[, zloc, drop=FALSE])==0)][-1]
-	#Vector for integration contrains
-	bint <- c(b0, b1)
-	if (loc==1){
-		b2loc <- which(cprod(M)==1)
-		b21 <- beta[b2loc]
-		b22 <- beta[which(cprod(M[, zloc, drop=FALSE])==1)][-b2loc]
-		constraints  <- c(bint, b21, b22)
-	} else if(loc==0){
-		constraints <- bint
-	}
-	return(constraints)
-}
-#Function defining the vector for eqfun to be constrained at
-eqB <- function(dz, dx, loc){
-	if (is.null(dx)){
-		D <- dz
-		zloc <- (length(dz$dobs)+1):(length(dz$dobs)+length(dz$dstar))
-	} else if (is.null(dz)){
-		D <- dx
-		zloc <- 1:length(D$dobs)
-	}
-	M <- tensormat(D=D)
-	b0 <- 1
-	#Parameter locations for integration constraints
-	b1intloc <- 1
-	b2intloc <- which(rowSums(M[, zloc, drop=FALSE])==0)[-1]
-	bintloc <- c(b1intloc, b2intloc)
-	#Vector for integration constraint values
-	bintval <- c(1, rep(0, length(b2intloc)))
-	if (loc==1){
-		#For centering restriction(s)
-		b1cloc <- which(cprod(M)==1)
-		b2cloc <- which(cprod(M[, zloc, drop=FALSE])==1)[-b2loc]
-		bcloc <- c(b1cloc, b2cloc)
-		#Vector for centering constraint values
-		bcval <- c(rep(1, length(b1cloc)), rep(0, length(b2cloc)))
-		#Combining the location for parameter constraints
-		bloc <- c(bintloc, bcloc)
-		#Combining the values for parameter constraints
-		bval <- c(bintval, bcval)
-	} else if(loc==0){
-		#If no normalization (i.e. on f_{xstar|z})
-		bloc <- bintloc
-		bval <- bintval
-	}
-	return(list(loc=bloc, val=bval))
-}
+# #Function defining the vector for eqfun to be constrained at
+# eqB <- function(dz, dx, loc){
+# 	if (is.null(dx)){
+# 		D <- dz
+# 		zloc <- (length(D$dobs)+1):(length(D$dobs)+length(D$dstar))
+# 	} else if (is.null(dz)){
+# 		D <- dx
+# 		zloc <- 1:length(D$dobs)
+# 	}
+# 	M <- tensormat(D=D)
+# 	b0 <- 1
+# 	#Parameter locations for integration constraints
+# 	b1intloc <- 1
+# 	b2intloc <- which(rowSums(M[, zloc, drop=FALSE])==0)[-1]
+# 	bintloc <- c(b1intloc, b2intloc)
+# 	#Vector for integration constraint values
+# 	bintval <- c(1, rep(0, length(b2intloc)))
+# 	if (loc==1){
+# 		#For centering restriction(s)
+# 		b1cloc <- which(cprod(M)==1)
+# 		b2cloc <- which(cprod(M[, zloc, drop=FALSE])==1)[-b2loc]
+# 		bcloc <- c(b1cloc, b2cloc)
+# 		#Vector for centering constraint values
+# 		bcval <- c(rep(1, length(b1cloc)), rep(0, length(b2cloc)))
+# 		#Combining the location for parameter constraints
+# 		bloc <- c(bintloc, bcloc)
+# 		#Combining the values for parameter constraints
+# 		bval <- c(bintval, bcval)
+# 	} else if(loc==0){
+# 		#If no normalization (i.e. on f_{xstar|z})
+# 		bloc <- bintloc
+# 		bval <- bintval
+# 	}
+# 	bconstr <- list(loc=bloc, val=bval)
+# 	return(bconstr)
+# }
 #Function that draws initial values for optimization that satisfies density constraints
-binit <- function(dz, dx, loc){
-	if (is.null(dx)){
-		D <- dz
-		zloc <- (length(dz$dobs)+1):(length(dz$dobs)+length(dz$dstar))
-	} else if (is.null(dz)){
-		D <- dx
-		zloc <- 1:length(D$dobs)
+binit <- function(dy, dz, dx){
+	if (is.list(dy)){
+		dtot <- prod(unlist(dy)+1)+prod(unlist(dx)+1)+prod(unlist(dz)+1)
+	} else {
+		dtot <- dy+prod(unlist(dx)+1)+prod(unlist(dz)+1)
 	}
-	M <- tensormat(D=D)
-	dim <- prod(as.numeric(unlist(D))+1)
-	betainit <- runif(dim)
-	#Drop values that have constraints
-	constr <- eqB(dz=dz, dx=dx, loc=loc)$loc
-	binit <- betainit[-constr]
+	betainit <- runif(dtot)
+	binit <- betainit
 	return(binit)
 }
-fobj <- function(X, Xstar, dz, dx, loc, beta){
-	if (is.null(dx)){
-		D <- dz
-	} else if (is.null(dz)){
-		D <- dx
-	}
-	#Parameter constraints
-	constr <- eqB(dz=dz, dx=dx, loc=loc)
-	#Sum over unobservables
-	avg <- 0
+fobjz <- function(Xstar, Z, C, dz, beta){
+	densz <- 0
 	for (m in 1:dim(Xstar)[2]){
-		xmat <- tensor(D=D, X=cbind(X, Xstar[,m,]))
-		#For constrained parameters
-		avg1 <- xmat[,constr$loc]%*%constr$val
-		#For unconstrained parameters
-		avg2 <- xmat[,-constr$loc]%*%beta
-		avg <- avg+log((avg1+avg2)^2)
+		densz <- densz+log((tensor(D=dz, X=cbind(Z, Xstar[,m,], C))%*%beta)^2)
 	}
-	return(sum(avg))
+	densz <- densz/dim(Xstar)[2]
+	return(mean(densz))
 }
-#Jacobian matrix
-fjac <- function(X, Xstar, dz, dx, loc, beta){
-	if (is.null(dx)){
-		D <- dz
-	} else if (is.null(dz)){
-		D <- dx
-	}
-	#Parameter constraints
-	constr <- eqB(dz=dz, dx=dx, loc=loc)
-	#Sum over unobservables
-	jac <- 0
+dobjz <- function(Xstar, Z, C, dz, beta){
+	densz <- 0
 	for (m in 1:dim(Xstar)[2]){
-		xmat <- tensor(D=D, X=cbind(X, Xstar[,m,]))
-		#For constrained parameters
-		x1 <- xmat[,constr$loc]%*%constr$val
-		#For unconstrained parameters
-		x2 <- xmat[,-constr$loc]%*%beta
-		xtot <- x1+x2
-		jac <- jac+colSums(2*xmat[,-constr$loc]/c(xtot))
-		
+		tensz <- tensor(D=dz, X=cbind(Z, Xstar[,m,], C))
+		densz <- densz+colMeans(2*tensz/c(tensz%*%beta))
 	}
-	return(jac)
+	densz <- densz/dim(Xstar)[2]
+	return(densz)
+
+}
+fobjx <- function(Xstar, X, C, dx, beta){
+	densx <- 0
+	for (m in 1:dim(Xstar)[2]){
+		densx <- densx+log((tensor(D=dx, X=cbind(X, Xstar[,m,], C))%*%beta)^2)
+	}
+	densx <- densx/dim(Xstar)[2]
+	return(mean(densx))
+}
+dobjx <- function(Xstar, X, C, dx, beta){
+	densx <- 0
+	for (m in 1:dim(Xstar)[2]){
+		tensx <- tensor(D=dx, X=cbind(X, Xstar[,m,], C))
+		densx <- densx+colMeans(2*tensx/c(tensx%*%beta))
+	}
+	densx <- densx/dim(Xstar)[2]
+	return(densx)
+
+}
+fobjy <- function(Y, Xstar, C, dy, densY, beta){
+	densy <- 0
+	for (m in 1:dim(Xstar)[2]){
+		if (missing(densY)){
+			densy <- densy+log((tensor(D=dy, X=cbind(Y, Xstar[,m,], C))%*%beta)^2)
+		} else{
+			densy <- densy+densY(Y=Y, Xstar=Xstar[,m,], C=C, beta=beta)
+		}	
+	}
+	densy <- densy/dim(Xstar)[2]
+	return(-mean(densy))
+}
+dobjy <- function(Y, Xstar, C, dy, jacY, beta){
+	dobjy <- 0
+	for (m in 1:dim(Xstar)[2]){
+		if (missing(jacY)){
+			tensy <- tensor(D=dy, X=cbind(Y, Xstar[,m,], C))
+			dobjy <- dobjy+colMeans(2*tensy/c(tensy%*%beta))
+		} else {
+			dobjy <- dobjy+jacY(Y=Y, Xstar=Xstar[,m,], C=C, beta=beta)
+		}
+	}
+	dobjy <- dobjy/dim(Xstar)[2]
+	return(dobjy)
 
 }
 #Posterior density 
-posterior <- function(X, Xstar, dz, dx, beta, loc){
-	if (is.null(dx)){
-		D <- dz
-	} else if (is.null(dz)){
-		D <- dx
+posterior <- function(densY, Y, X, Z, Xstar, C, dy, dx, dz, beta){
+	#Position of beta for Y|X,C
+	if (missing(densY)){
+		py <- prod(unlist(dy)+1)
+		betay <- beta[1:py]
+		densY <- tensor(D=dy, X=cbind(Y, Xstar, C))%*%betay
+		densY <- log(densY^2)
+	} else {
+		py <- dy
+		betay <- beta[1:dy]
+		densY <- densY(Y=Y, Xstar=Xstar, C=C, beta=betay)
 	}
-	xmat <- tensor(D=D, X=cbind(X, Xstar))
-	#Parameter constraints
-	constr <- eqB(dz=dz, dx=dx, loc=loc)
-	#For constrained parameters
-	x1 <- xmat[,constr$loc]%*%constr$val
-	#For unconstrained parameters
-	x2 <- xmat[,-constr$loc]%*%beta
-	dens <- log((x1+x2)^2)
-	dens <- data.table(idvar=idvar, dens=dens)[,sum(dens),keyby=idvar]$V1
+	#Position of beta for X|Xstar, C
+	p1x <- py+1; pnx <- py+prod(unlist(dx)+1)
+	betax <- beta[p1x:pnx]
+	#Position of beta for Xstar|Z, C
+	p1z <- pnx+1; pnz <- length(beta)
+	betaz <- beta[p1z:pnz]
+	#Densities
+	densx <- tensor(D=dx, X=cbind(X, Xstar, C))%*%betax
+	densz <- tensor(D=dz, X=cbind(Z, Xstar, C))%*%betaz
+	#Combine
+	dens <- densY+log(densx^2)+log(densz^2)
+	dens <- data.table(id=idvar, dens=as.numeric(dens))[,sum(dens),keyby=id]$V1
 	return(dens)
 
 }
