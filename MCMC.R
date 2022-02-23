@@ -2,7 +2,7 @@ MCMC <- function(Y, X, Z, C, dy, dx, dz, beta, bdraws, init){
 	#Acceptance Rates for MCMC
 	acc <- array(0, c(N, bdraws+1))
 	#Initial Guess of Unobservables
-	siginit <- sqrt(0.05)
+	siginit <- sqrt(3)
 	draw <- matrix(init, nrow=N, ncol=1)
 	#Compute posterior at initial value
 	oldpost <- posterior(Y=Y, X=X, Z=Z, Xstar=draw, C=C, dy=dy, dx=dx, dz=dz, beta=beta)

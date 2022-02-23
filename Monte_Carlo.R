@@ -28,7 +28,7 @@ X <- as.matrix(c(t(x)))
 Z <- as.matrix(c(t(z)))
 xtrue <- as.matrix(c(t(xtrue)))
 #Arguments for SMLE
-xinit <- array(xtrue, c(N, 1))
+xinit <- array(rnorm(N), c(N, 1))
 print(summary(xtrue))
 # dx <- list(dstar=2, dobs=2)
 # dz <- list(dstar=2, dobs=2)

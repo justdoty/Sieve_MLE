@@ -46,6 +46,7 @@ smle <- function(Y, Xobs, Z, C, dy, dx, dz, eiter, bdraws, xinit){
 		print(e)
 		#Draw values of unobservables
 		Xstar <- MCMC(Y=Y, X=X, Z=Z, C=C, dy=dy, dx=dx, dz=dz, beta=binit, bdraws=bdraws, init=xinit)
+		print(summary(Xstar))
 		#At the value of unobservables, update parameters
 		#For tensor products
 		# binit3 <- solnp(binit3, fun=function(beta) fobjz(Xstar=Xstar, Z=Z, C=C, dz=dz, beta), eqfun=function(beta) hermconst(d=dz, loc=0, beta), eqB=1, control=list(trace=0))$pars
